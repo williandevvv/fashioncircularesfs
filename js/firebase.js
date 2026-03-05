@@ -25,12 +25,12 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
 
 const firebaseConfig = {
-  apiKey: 'REEMPLAZAR_API_KEY',
-  authDomain: 'REEMPLAZAR_AUTH_DOMAIN',
-  projectId: 'REEMPLAZAR_PROJECT_ID',
-  storageBucket: 'REEMPLAZAR_STORAGE_BUCKET',
-  messagingSenderId: 'REEMPLAZAR_MESSAGING_SENDER_ID',
-  appId: 'REEMPLAZAR_APP_ID'
+  apiKey: "AIzaSyDub4MtWEFkg4GYzo7b9dVrhI-Ms5OF32I",
+  authDomain: "circularesfashioncollection.firebaseapp.com",
+  projectId: "circularesfashioncollection",
+  storageBucket: "circularesfashioncollection.firebasestorage.app",
+  messagingSenderId: "395491441213",
+  appId: "1:395491441213:web:ceb09a1085e5e13cba0854"
 };
 
 const app = initializeApp(firebaseConfig);
