@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin | CIRCULARES FASHION</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Panel de administración</h1>
+    <a class="btn btn-secondary" href="./index.html">Inicio</a>
+  </header>
+
+  <main class="container admin-layout">
+    <section id="loginSection" class="panel">
+      <h2>Acceso admin</h2>
+      <form id="loginForm" class="form">
+        <label>
+          Correo
+          <input id="email" type="email" required placeholder="admin@circulares.fs" />
+        </label>
+        <label>
+          Contraseña
+          <input id="password" type="password" required minlength="8" />
+        </label>
+        <button class="btn" type="submit">Iniciar sesión</button>
+      </form>
+    </section>
+
+    <section id="panelSection" class="panel hidden">
+      <div class="panel-header">
+        <h2>Subir nueva circular</h2>
+        <button id="logoutBtn" class="btn btn-secondary" type="button">Cerrar sesión</button>
+      </div>
+
+      <form id="uploadForm" class="form">
+        <label>Código <input name="codigo" type="text" required /></label>
+        <label>Número <input name="numero" type="text" required /></label>
+        <label>Departamento <input name="departamento" type="text" required /></label>
+        <label>Descripción <textarea name="descripcion" rows="4" required></textarea></label>
+        <label>Fecha <input name="fecha" type="date" required /></label>
+        <label>Archivo PDF <input name="pdf" type="file" accept="application/pdf" required /></label>
+        <button class="btn" type="submit">Guardar circular</button>
+      </form>
+      <p id="uploadStatus" class="status"></p>
+    </section>
+
+    <p id="authStatus" class="status"></p>
+  </main>
+
+  <script type="module" src="../js/admin.js"></script>
+</body>
+</html>
