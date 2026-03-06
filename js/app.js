@@ -3,6 +3,7 @@ import {
   collection,
   onSnapshot,
   query,
+  orderBy,
   limit,
   waitForAuthReady,
   ensureAuthSession
@@ -15,8 +16,23 @@ const departmentFilter = document.getElementById('departmentFilter');
 const statusText = document.getElementById('statusText');
 
 let allCirculares = [];
+let unsubscribeCirculares = null;
 
-const safeText = (value) => value || 'Sin dato';
+const safeText = (value) => (value === null || value === undefined || value === '' ? 'Sin dato' : value);
+
+const normalizeCircular = (id, data = {}) => ({
+  id,
+  codigo: data.codigo || '',
+  numero: data.numero || '',
+  departamento: data.departamento || '',
+  descripcion: data.descripcion || '',
+  fecha: data.fecha || '',
+  pdfUrl: data.pdfUrl || '#',
+  codigoNormalizado: data.codigoNormalizado || '',
+  numeroNormalizado: data.numeroNormalizado || '',
+  createdAt: data.createdAt || null,
+  createdBy: data.createdBy || ''
+});
 
 const circularCard = (id, circular) => `
   <article class="card">
@@ -59,35 +75,42 @@ const applyFilters = () => {
   renderCards(filtered);
 };
 
+const subscribeToCirculares = (circularesQuery) =>
+  onSnapshot(
+    circularesQuery,
+    (snapshot) => {
+      allCirculares = snapshot.docs.map((docSnap) => normalizeCircular(docSnap.id, docSnap.data()));
+      renderDepartmentOptions();
+      applyFilters();
+      statusText.textContent = `Circulares cargadas: ${allCirculares.length}`;
+    },
+    (error) => {
+      console.error('[APP][SNAPSHOT]', error);
+      const isPermissionError = error?.code === 'permission-denied';
+      statusText.textContent = isPermissionError
+        ? 'No hay permisos para leer las circulares. Revisa reglas de Firestore.'
+        : 'No fue posible cargar las circulares.';
+      cardsContainer.innerHTML = '<p class="empty">Error al cargar datos.</p>';
+    }
+  );
+
 const loadCirculares = async () => {
   statusText.textContent = 'Cargando circulares...';
   await waitForAuthReady();
   await ensureAuthSession();
 
-  const circularesQuery = query(collection(db, 'circulares'), limit(100));
+  const baseCollection = collection(db, 'circulares');
+  const orderedQuery = query(baseCollection, orderBy('createdAt', 'desc'), limit(100));
 
-  onSnapshot(
-    circularesQuery,
-    (snapshot) => {
-      allCirculares = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      }));
-
-      renderDepartmentOptions();
-      applyFilters();
-
-      statusText.textContent = `Circulares cargadas: ${allCirculares.length}`;
-    },
-    (error) => {
-      console.error(error);
-      const isPermissionError = error?.code === 'permission-denied';
-      statusText.textContent = isPermissionError
-        ? 'No hay permisos para leer las circulares. Revisa las reglas de Firestore.'
-        : 'No fue posible cargar las circulares.';
-      cardsContainer.innerHTML = '<p class="empty">Error al cargar datos.</p>';
-    }
-  );
+  try {
+    unsubscribeCirculares?.();
+    unsubscribeCirculares = subscribeToCirculares(orderedQuery);
+  } catch (error) {
+    console.warn('[APP] Falló query con orderBy(createdAt), usando fallback.', error);
+    const fallbackQuery = query(baseCollection, limit(100));
+    unsubscribeCirculares?.();
+    unsubscribeCirculares = subscribeToCirculares(fallbackQuery);
+  }
 };
 
 searchInput.addEventListener('input', applyFilters);

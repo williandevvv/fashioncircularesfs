@@ -5,13 +5,15 @@ const detailContainer = document.getElementById('detailContainer');
 const params = new URLSearchParams(window.location.search);
 const circularId = params.get('id');
 
-const safeText = (value) => value || 'Sin dato';
+const safeText = (value) => (value === null || value === undefined || value === '' ? 'Sin dato' : value);
 
 const renderError = (message) => {
   detailContainer.innerHTML = `<p class="empty">${message}</p>`;
 };
 
 const renderCircular = (circular) => {
+  const pdfUrl = circular.pdfUrl || '';
+
   detailContainer.innerHTML = `
     <article class="detail-card">
       <h2>Circular #${safeText(circular.numero)}</h2>
@@ -27,9 +29,13 @@ const renderCircular = (circular) => {
       </div>
       <div class="pdf-wrapper">
         <h3>Documento PDF</h3>
-        <iframe src="${safeText(circular.pdfUrl)}" title="PDF de la circular"></iframe>
+        ${pdfUrl ? `<iframe src="${pdfUrl}" title="PDF de la circular"></iframe>` : '<p class="empty">PDF no disponible.</p>'}
       </div>
-      <a class="btn" href="${safeText(circular.pdfUrl)}" target="_blank" rel="noopener noreferrer">Abrir PDF en nueva pestaña</a>
+      ${
+        pdfUrl
+          ? `<a class="btn" href="${pdfUrl}" target="_blank" rel="noopener noreferrer">Abrir PDF en nueva pestaña</a>`
+          : ''
+      }
     </article>
   `;
 };
@@ -49,9 +55,9 @@ const loadDetail = async () => {
       renderError('Circular no encontrada.');
       return;
     }
-    renderCircular(snap.data());
+    renderCircular(snap.data() || {});
   } catch (error) {
-    console.error(error);
+    console.error('[DETALLE]', error);
     renderError('No fue posible cargar el detalle.');
   }
 };
