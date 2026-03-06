@@ -13,6 +13,7 @@ import {
   getDownloadURL,
   waitForAuthReady
 } from './firebase.js';
+import { normalizeText } from './search.js';
 
 const ADMIN_EMAIL = 'admin@circulares.fs';
 
@@ -39,6 +40,25 @@ const setUploadStatus = (message, isError = false) => {
   uploadStatus.classList.toggle('error', isError);
 };
 
+const getDetailedErrorMessage = (error, fallbackMessage) => {
+  const code = error?.code || 'desconocido';
+  const storageUnauthorizedCodes = ['storage/unauthorized', 'storage/forbidden'];
+
+  if (storageUnauthorizedCodes.includes(code)) {
+    return 'Sin permisos para subir PDF a Storage. Revisa reglas de Storage y sesión admin.';
+  }
+
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+    return 'Credenciales inválidas. Verifica correo y contraseña.';
+  }
+
+  if (code === 'permission-denied') {
+    return 'Sin permisos para escribir en Firestore. Revisa reglas de Firestore.';
+  }
+
+  return `${fallbackMessage} (${code})`;
+};
+
 loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const email = document.getElementById('email').value.trim();
@@ -49,8 +69,8 @@ loginForm.addEventListener('submit', async (event) => {
     setAuthStatus('Sesión iniciada correctamente.');
     loginForm.reset();
   } catch (error) {
-    console.error(error);
-    setAuthStatus('No fue posible iniciar sesión.', true);
+    console.error('[ADMIN][LOGIN]', error);
+    setAuthStatus(getDetailedErrorMessage(error, 'No fue posible iniciar sesión.'), true);
   }
 });
 
@@ -61,43 +81,75 @@ logoutBtn.addEventListener('click', async () => {
 
 uploadForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  setUploadStatus('Subiendo circular...');
+  setUploadStatus('Validando sesión y preparando carga...');
 
   const currentUser = auth.currentUser;
-  if (!currentUser || currentUser.email !== ADMIN_EMAIL) {
+  if (!currentUser) {
+    setUploadStatus('No hay sesión activa. Inicia sesión como administrador.', true);
+    return;
+  }
+
+  if (currentUser.email !== ADMIN_EMAIL) {
     setUploadStatus('Acceso denegado. Solo el admin puede subir circulares.', true);
     return;
   }
 
+  const formData = new FormData(uploadForm);
+  const file = formData.get('pdf');
+
+  if (!(file instanceof File) || !file.size) {
+    setUploadStatus('Debes seleccionar un PDF válido.', true);
+    return;
+  }
+
+  if (file.type && file.type !== 'application/pdf') {
+    setUploadStatus('El archivo debe ser un PDF.', true);
+    return;
+  }
+
+  const codigo = formData.get('codigo')?.toString().trim() || '';
+  const numero = formData.get('numero')?.toString().trim() || '';
+  const departamento = formData.get('departamento')?.toString().trim() || '';
+  const descripcion = formData.get('descripcion')?.toString().trim() || '';
+  const fecha = formData.get('fecha')?.toString().trim() || '';
+
   try {
-    const formData = new FormData(uploadForm);
-    const file = formData.get('pdf');
+    // 1) Subir PDF primero. Si falla, NO se guarda nada en Firestore.
+    setUploadStatus('Subiendo PDF a Storage...');
+    const sanitizedFileName = file.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '');
+    const storagePath = `circulares/${Date.now()}-${sanitizedFileName || 'documento.pdf'}`;
+    const fileRef = ref(storage, storagePath);
 
-    if (!(file instanceof File) || !file.size) {
-      setUploadStatus('Debes seleccionar un PDF válido.', true);
-      return;
-    }
+    await uploadBytes(fileRef, file, {
+      contentType: 'application/pdf',
+      customMetadata: {
+        uploadedBy: currentUser.uid,
+        originalName: file.name
+      }
+    });
 
-    const fileRef = ref(storage, `circulares/${Date.now()}-${file.name}`);
-    await uploadBytes(fileRef, file);
     const pdfUrl = await getDownloadURL(fileRef);
 
+    // 2) Guardar metadatos en Firestore con campos normalizados para búsqueda.
+    setUploadStatus('Guardando metadatos en Firestore...');
     await addDoc(collection(db, 'circulares'), {
-      codigo: formData.get('codigo')?.toString().trim(),
-      numero: formData.get('numero')?.toString().trim(),
-      departamento: formData.get('departamento')?.toString().trim(),
-      descripcion: formData.get('descripcion')?.toString().trim(),
-      fecha: formData.get('fecha')?.toString(),
+      codigo,
+      numero,
+      departamento,
+      descripcion,
+      fecha,
+      codigoNormalizado: normalizeText(codigo),
+      numeroNormalizado: normalizeText(numero),
       pdfUrl,
       createdAt: serverTimestamp(),
       createdBy: currentUser.uid
     });
 
     uploadForm.reset();
-    setUploadStatus('Circular guardada correctamente.');
+    setUploadStatus('Circular guardada correctamente ✅');
   } catch (error) {
-    console.error(error);
-    setUploadStatus('Error al subir la circular.', true);
+    console.error('[ADMIN][UPLOAD]', error);
+    setUploadStatus(getDetailedErrorMessage(error, 'Error al subir/guardar la circular.'), true);
   }
 });
 
