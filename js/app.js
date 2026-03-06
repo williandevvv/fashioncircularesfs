@@ -2,10 +2,10 @@ import {
   db,
   collection,
   onSnapshot,
-  orderBy,
   query,
   limit,
-  waitForAuthReady
+  waitForAuthReady,
+  ensureAuthSession
 } from './firebase.js';
 import { filterCirculares, getUniqueDepartments } from './search.js';
 
@@ -62,31 +62,29 @@ const applyFilters = () => {
 const loadCirculares = async () => {
   statusText.textContent = 'Cargando circulares...';
   await waitForAuthReady();
+  await ensureAuthSession();
 
-  const circularesQuery = query(
-    collection(db, 'circulares'),
-    limit(100)
-  );
+  const circularesQuery = query(collection(db, 'circulares'), limit(100));
 
-onSnapshot(
-  circularesQuery,
-  (snapshot) => {
+  onSnapshot(
+    circularesQuery,
+    (snapshot) => {
+      allCirculares = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
 
-    console.log("DOCUMENTOS:", snapshot.docs);
+      renderDepartmentOptions();
+      applyFilters();
 
-    allCirculares = snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    }));
-
-    renderDepartmentOptions();
-    applyFilters();
-
-    statusText.textContent = `Circulares cargadas: ${allCirculares.length}`;
-  },
+      statusText.textContent = `Circulares cargadas: ${allCirculares.length}`;
+    },
     (error) => {
       console.error(error);
-      statusText.textContent = 'No fue posible cargar las circulares.';
+      const isPermissionError = error?.code === 'permission-denied';
+      statusText.textContent = isPermissionError
+        ? 'No hay permisos para leer las circulares. Revisa las reglas de Firestore.'
+        : 'No fue posible cargar las circulares.';
       cardsContainer.innerHTML = '<p class="empty">Error al cargar datos.</p>';
     }
   );
