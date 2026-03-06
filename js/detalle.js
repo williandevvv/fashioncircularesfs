@@ -1,4 +1,4 @@
-import { db, doc, getDoc, waitForAuthReady } from './firebase.js';
+import { db, doc, getDoc, waitForAuthReady, ensureAuthSession } from './firebase.js';
 
 const detailContainer = document.getElementById('detailContainer');
 
@@ -41,6 +41,7 @@ const loadDetail = async () => {
   }
 
   await waitForAuthReady();
+  await ensureAuthSession();
 
   try {
     const snap = await getDoc(doc(db, 'circulares', circularId));

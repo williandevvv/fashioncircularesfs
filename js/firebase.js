@@ -2,6 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/fireba
 import {
   getAuth,
   onAuthStateChanged,
+  signInAnonymously,
   signInWithEmailAndPassword,
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
@@ -51,6 +52,19 @@ const authReadyPromise = new Promise((resolve) => {
 
 const waitForAuthReady = () => authReadyPromise;
 
+const ensureAuthSession = async () => {
+  await waitForAuthReady();
+  if (auth.currentUser) return auth.currentUser;
+
+  try {
+    const credentials = await signInAnonymously(auth);
+    return credentials.user;
+  } catch (error) {
+    console.error('No fue posible iniciar sesión anónima.', error);
+    return null;
+  }
+};
+
 export {
   auth,
   db,
@@ -67,6 +81,7 @@ export {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
+  ensureAuthSession,
   ref,
   uploadBytes,
   getDownloadURL,
