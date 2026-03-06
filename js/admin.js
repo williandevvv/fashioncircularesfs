@@ -56,7 +56,8 @@ const getDetailedErrorMessage = (error, fallbackMessage) => {
     return 'Sin permisos para escribir en Firestore. Revisa reglas de Firestore.';
   }
 
-  return `${fallbackMessage} (${code})`;
+  const details = error?.message ? `: ${error.message}` : "";
+  return `${fallbackMessage} (${code})${details}`;
 };
 
 loginForm.addEventListener('submit', async (event) => {
@@ -116,8 +117,7 @@ uploadForm.addEventListener('submit', async (event) => {
   try {
     // 1) Subir PDF primero. Si falla, NO se guarda nada en Firestore.
     setUploadStatus('Subiendo PDF a Storage...');
-    const sanitizedFileName = file.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '');
-    const storagePath = `circulares/${Date.now()}-${sanitizedFileName || 'documento.pdf'}`;
+    const storagePath = `circulares/${Date.now()}-${file.name}`;
     const fileRef = ref(storage, storagePath);
 
     await uploadBytes(fileRef, file, {
