@@ -75,7 +75,7 @@ const applyFilters = () => {
   renderCards(filtered);
 };
 
-const subscribeToCirculares = (circularesQuery) =>
+const subscribeToCirculares = (circularesQuery, onError) =>
   onSnapshot(
     circularesQuery,
     (snapshot) => {
@@ -85,6 +85,11 @@ const subscribeToCirculares = (circularesQuery) =>
       statusText.textContent = `Circulares cargadas: ${allCirculares.length}`;
     },
     (error) => {
+      if (typeof onError === 'function') {
+        onError(error);
+        return;
+      }
+
       console.error('[APP][SNAPSHOT]', error);
       const isPermissionError = error?.code === 'permission-denied';
       statusText.textContent = isPermissionError
@@ -101,16 +106,25 @@ const loadCirculares = async () => {
 
   const baseCollection = collection(db, 'circulares');
   const orderedQuery = query(baseCollection, orderBy('createdAt', 'desc'), limit(100));
+  const fallbackQuery = query(baseCollection, limit(100));
 
-  try {
+  const subscribeFallback = () => {
     unsubscribeCirculares?.();
-    unsubscribeCirculares = subscribeToCirculares(orderedQuery);
-  } catch (error) {
+    unsubscribeCirculares = subscribeToCirculares(fallbackQuery, (fallbackError) => {
+      console.error('[APP][SNAPSHOT][FALLBACK]', fallbackError);
+      const isPermissionError = fallbackError?.code === 'permission-denied';
+      statusText.textContent = isPermissionError
+        ? 'No hay permisos para leer las circulares. Revisa reglas de Firestore.'
+        : 'No fue posible cargar las circulares.';
+      cardsContainer.innerHTML = '<p class="empty">Error al cargar datos.</p>';
+    });
+  };
+
+  unsubscribeCirculares?.();
+  unsubscribeCirculares = subscribeToCirculares(orderedQuery, (error) => {
     console.warn('[APP] Falló query con orderBy(createdAt), usando fallback.', error);
-    const fallbackQuery = query(baseCollection, limit(100));
-    unsubscribeCirculares?.();
-    unsubscribeCirculares = subscribeToCirculares(fallbackQuery);
-  }
+    subscribeFallback();
+  });
 };
 
 searchInput.addEventListener('input', applyFilters);

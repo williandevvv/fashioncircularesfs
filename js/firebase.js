@@ -38,8 +38,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Base por defecto del proyecto (más compatible si no usas múltiples bases de datos).
-const db = getFirestore(app);
+const db = getFirestore(app, "circularesfs");
 const storage = getStorage(app);
 
 let authInitialized = false;
