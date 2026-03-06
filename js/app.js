@@ -68,14 +68,22 @@ const loadCirculares = async () => {
     limit(100)
   );
 
-  onSnapshot(
-    circularesQuery,
-    (snapshot) => {
-      allCirculares = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-      renderDepartmentOptions();
-      applyFilters();
-      statusText.textContent = `Circulares cargadas: ${allCirculares.length}`;
-    },
+onSnapshot(
+  circularesQuery,
+  (snapshot) => {
+
+    console.log("DOCUMENTOS:", snapshot.docs);
+
+    allCirculares = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data()
+    }));
+
+    renderDepartmentOptions();
+    applyFilters();
+
+    statusText.textContent = `Circulares cargadas: ${allCirculares.length}`;
+  },
     (error) => {
       console.error(error);
       statusText.textContent = 'No fue posible cargar las circulares.';
