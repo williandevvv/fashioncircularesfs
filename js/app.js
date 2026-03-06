@@ -65,7 +65,6 @@ const loadCirculares = async () => {
 
   const circularesQuery = query(
     collection(db, 'circulares'),
-    orderBy('createdAt', 'desc'),
     limit(100)
   );
 
