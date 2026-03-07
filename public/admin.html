@@ -41,6 +41,13 @@
         <label>Descripción <textarea name="descripcion" rows="4" required></textarea></label>
         <label>Fecha <input name="fecha" type="date" required /></label>
         <label>Archivo PDF <input name="pdf" type="file" accept="application/pdf" required /></label>
+
+        <div class="panel" style="padding: 12px; margin: 4px 0 8px;">
+          <strong>Códigos detectados</strong>
+          <p id="codesPreviewStatus" class="status">Selecciona un PDF para detectar códigos.</p>
+          <ul id="codesPreviewList" style="margin: 0; padding-left: 20px;"></ul>
+        </div>
+
         <button class="btn" type="submit">Guardar circular</button>
       </form>
       <p id="uploadStatus" class="status"></p>
@@ -49,6 +56,11 @@
     <p id="authStatus" class="status"></p>
   </main>
 
+  <script type="module">
+    import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs";
+    window.pdfjsLib = pdfjsLib;
+  </script>
   <script type="module" src="../js/admin.js"></script>
 </body>
 </html>

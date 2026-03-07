@@ -14,6 +14,7 @@ import {
   waitForAuthReady
 } from './firebase.js';
 import { normalizeText } from './search.js';
+import { extractPdfTextAndCodes } from './pdf-codes.js';
 
 const ADMIN_EMAIL = 'admin@circulares.fs';
 
@@ -24,6 +25,13 @@ const uploadForm = document.getElementById('uploadForm');
 const logoutBtn = document.getElementById('logoutBtn');
 const authStatus = document.getElementById('authStatus');
 const uploadStatus = document.getElementById('uploadStatus');
+const pdfInput = uploadForm.elements.namedItem('pdf');
+const codesPreviewList = document.getElementById('codesPreviewList');
+const codesPreviewStatus = document.getElementById('codesPreviewStatus');
+
+let detectedCodes = [];
+let extractedPdfText = '';
+let lastAnalyzedFileKey = '';
 
 const setPanelVisibility = (isAdmin) => {
   loginSection.classList.toggle('hidden', isAdmin);
@@ -39,6 +47,81 @@ const setUploadStatus = (message, isError = false) => {
   uploadStatus.textContent = message;
   uploadStatus.classList.toggle('error', isError);
 };
+
+const renderCodesPreview = (codes, message = '') => {
+  if (!codesPreviewList || !codesPreviewStatus) return;
+
+  if (!codes.length) {
+    codesPreviewList.innerHTML = '';
+    codesPreviewStatus.textContent = message || 'No se detectaron códigos en el PDF.';
+    codesPreviewStatus.classList.add('error');
+    return;
+  }
+
+  codesPreviewStatus.textContent = `${codes.length} código(s) detectado(s).`;
+  codesPreviewStatus.classList.remove('error');
+  codesPreviewList.innerHTML = codes.map((code) => `<li>${code}</li>`).join('');
+};
+
+const resetExtractionState = () => {
+  detectedCodes = [];
+  extractedPdfText = '';
+  lastAnalyzedFileKey = '';
+  renderCodesPreview([], 'Selecciona un PDF para detectar códigos.');
+};
+
+const getFileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+
+const analyzePdfFile = async (file) => {
+  setUploadStatus('Analizando PDF para detectar códigos...');
+
+  try {
+    const { textoExtraido, codigos } = await extractPdfTextAndCodes(file);
+    detectedCodes = codigos;
+    extractedPdfText = textoExtraido;
+    lastAnalyzedFileKey = getFileKey(file);
+
+    if (!textoExtraido) {
+      renderCodesPreview([], 'No se pudo extraer texto del PDF. Verifica si es escaneado o imagen.');
+      setUploadStatus('PDF cargado, pero sin texto legible para extraer códigos.', true);
+      return;
+    }
+
+    if (!codigos.length) {
+      renderCodesPreview([], 'No se detectaron códigos en el PDF.');
+      setUploadStatus('PDF analizado. No se detectaron códigos.', true);
+      return;
+    }
+
+    renderCodesPreview(codigos);
+    setUploadStatus('PDF analizado correctamente.');
+  } catch (error) {
+    console.error('[ADMIN][PDF_ANALYSIS]', error);
+    resetExtractionState();
+    renderCodesPreview([], 'No se pudo extraer texto del PDF. Verifica si es escaneado o imagen.');
+    setUploadStatus('No se pudo analizar el PDF seleccionado.', true);
+  }
+};
+
+if (pdfInput) {
+  pdfInput.addEventListener('change', async () => {
+    const selectedFile = pdfInput.files?.[0];
+
+    if (!selectedFile) {
+      resetExtractionState();
+      return;
+    }
+
+    if (selectedFile.type && selectedFile.type !== 'application/pdf') {
+      resetExtractionState();
+      setUploadStatus('El archivo debe ser un PDF.', true);
+      return;
+    }
+
+    await analyzePdfFile(selectedFile);
+  });
+}
+
 
 const getDetailedErrorMessage = (error, fallbackMessage) => {
   const code = error?.code || 'desconocido';
@@ -115,6 +198,11 @@ uploadForm.addEventListener('submit', async (event) => {
   const fecha = formData.get('fecha')?.toString().trim() || '';
 
   try {
+    const currentFileKey = getFileKey(file);
+    if (currentFileKey !== lastAnalyzedFileKey) {
+      await analyzePdfFile(file);
+    }
+
     // 1) Subir PDF primero. Si falla, NO se guarda nada en Firestore.
     setUploadStatus('Subiendo PDF a Storage...');
     const storagePath = `circulares/${Date.now()}-${file.name}`;
@@ -141,11 +229,16 @@ uploadForm.addEventListener('submit', async (event) => {
       codigoNormalizado: normalizeText(codigo),
       numeroNormalizado: normalizeText(numero),
       pdfUrl,
+      pdfPath: storagePath,
+      codigos: detectedCodes,
+      textoExtraido: extractedPdfText || '',
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       createdBy: currentUser.uid
     });
 
     uploadForm.reset();
+    resetExtractionState();
     setUploadStatus('Circular guardada correctamente ✅');
   } catch (error) {
     console.error('[ADMIN][UPLOAD]', error);
@@ -170,4 +263,5 @@ const bootstrap = async () => {
   });
 };
 
+resetExtractionState();
 bootstrap();
