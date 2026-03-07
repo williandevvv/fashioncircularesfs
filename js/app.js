@@ -105,7 +105,8 @@ const loadCirculares = async () => {
   await ensureAuthSession();
 
   const baseCollection = collection(db, 'circularesfs');
-  limit(100));
+   const orderedQuery = query(baseCollection, orderBy('createdAt', 'desc'), limit(100));
+  const fallbackQuery = query(baseCollection, limit(100));
   
 
   const subscribeFallback = () => {
